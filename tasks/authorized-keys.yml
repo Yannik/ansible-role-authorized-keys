@@ -1,0 +1,6 @@
+- name: update SSH keys
+  authorized_key:
+    user: root
+    key: "{{ lookup('pipe','cat ' + authorized_keys_path) }}"
+    state: present
+    exclusive: yes
