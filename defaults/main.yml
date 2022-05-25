@@ -1,1 +1,3 @@
-authorized_keys_path: files/{{ inventory_hostname }}/authorized-keys/*.pub
+authorized_keys_dirs:
+  - "{{ inventory_dir }}/files/{{ inventory_hostname }}/authorized-keys/"
+  - "{{ inventory_dir }}/files/all/authorized-keys/"

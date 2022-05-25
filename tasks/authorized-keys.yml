@@ -1,6 +1,61 @@
+- name: Get filetree of all authorized keys directories
+  debug:
+    var: item
+  when: item.state == 'directory' and '/' not in item.path
+  # note: for some reason, only the first item with a unique item.path is iterated (the others are ignored)
+  # e.g. all/abc/ and server1/abc/ results in only 1 item being iterated over
+  # same for all/abc/gitlab.pub and server1/abc/gitlab.pub (very unlikely something like this should exist)
+  with_filetree: "{{ authorized_keys_dirs }}"
+  register: result
+
+- name: Extract users from filetree
+  set_fact:
+    users: "{{ result.results|selectattr('skipped', 'undefined')|map(attribute='item.path') }}"
+
+- name: Extract key file items from filetree
+  set_fact:
+    files: "{{ result.results|map(attribute='item')|selectattr('state', 'equalto', 'file')|selectattr('path', 'match', '.*\\.pub') }}"
+
+- name: List local users authorized keys should be configured for
+  debug:
+    var: users
+
+- name: List all key files
+  debug: var=files
+
+- name: List all key files per local user (multiple keyfiles per user can exist, e.g. if two people should have access to the root account)
+  debug:
+    msg: "{{ files|selectattr('path', 'match', (item + '/')|regex_escape)|map(attribute='src')|join(' ') }}"
+  loop: "{{ users }}"
+
+- name: Create users
+  user:
+    name: "{{ item }}"
+  loop: "{{ users }}"
+
 - name: update SSH keys
   authorized_key:
-    user: root
-    key: "{{ lookup('pipe','cat ' + authorized_keys_path) }}"
+    user: "{{ item }}"
+    key: "{{ lookup('pipe', 'cat ' + files|selectattr('path', 'match', (item + '/')|regex_escape)|map(attribute='src')|join(' ')) }}"
     state: present
     exclusive: yes
+  loop: "{{ users }}"
+
+### Old (simpler) methods used by this role ###
+#
+#- name: update SSH keys
+#  authorized_key:
+#    user: root
+#    key: "{{ lookup('pipe','cat ' + authorized_keys_path) }}"
+#    state: present
+#    exclusive: yes
+
+#- name: update SSH keys
+#  authorized_key:
+#    user: "{{ item.path }}"
+#    key: "{{ lookup('pipe','cat ' + item.root + item.path + '/*.pub') }}"
+#    state: present
+#    exclusive: yes
+#  when: item.state == 'directory' and '/' not in item.path
+#  with_filetree:
+#    - "{{ authorized_keys_dir }}"
