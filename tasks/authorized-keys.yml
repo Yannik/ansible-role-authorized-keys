@@ -6,6 +6,8 @@
   # e.g. all/abc/ and server1/abc/ results in only 1 item being iterated over
   # same for all/abc/gitlab.pub and server1/abc/gitlab.pub (very unlikely something like this should exist)
   with_filetree: "{{ authorized_keys_dirs }}"
+  loop_control:
+    label: "{{ item.path }}"
   register: result
 
 - name: Extract users from filetree
@@ -21,7 +23,7 @@
     var: users
 
 - name: List all key files
-  debug: var=files
+  debug: var=files|map(attribute='path')
 
 - name: List all key files per local user (multiple keyfiles per user can exist, e.g. if two people should have access to the root account)
   debug:
