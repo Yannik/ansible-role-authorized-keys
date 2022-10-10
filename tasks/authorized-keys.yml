@@ -36,7 +36,9 @@
 - name: update SSH keys
   authorized_key:
     user: "{{ item }}"
-    key: "{{ lookup('pipe', 'cat ' + files|selectattr('path', 'match', (item + '/')|regex_escape)|map(attribute='src')|join(' ')) }}"
+    # use awk instead of cat to ensure that every line ends in a newline (otherwise keys might get concatted on the same line)
+    # see https://unix.stackexchange.com/a/420622/72087
+    key: "{{ lookup('pipe', 'awk 1 ' + files|selectattr('path', 'match', (item + '/')|regex_escape)|map(attribute='src')|join(' ')) }}"
     state: present
     exclusive: yes
   loop: "{{ users }}"
